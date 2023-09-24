@@ -1,0 +1,14 @@
+[package]
+name = "pikuma-rs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bit-set = "0.5.3"
+env_logger = "0.10.0"
+glam = "0.24.1"
+log = "0.4.20"
+sdl2 = { version = "0.35.2", features = ["image", "mixer", "ttf"] }
+sparseset = { git = "https://github.com/k-nrd/sparseset", version = "1.0.1" }
