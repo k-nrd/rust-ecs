@@ -1,6 +1,8 @@
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+use super::entities::EntityId;
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct GenerationalIndex {
-    index: usize,
+    index: EntityId,
     generation: usize,
 }
 
@@ -68,6 +70,10 @@ impl GenerationalIndexAllocator {
             .expect("GenerationalIndex overflow");
         self.free.push(gen_index.index);
         true
+    }
+
+    pub fn live_count(&self) -> usize {
+        self.entries.iter().filter(|gi| gi.is_live).count()
     }
 
     pub fn is_live(&self, gen_index: GenerationalIndex) -> bool {

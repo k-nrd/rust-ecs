@@ -22,13 +22,13 @@ impl World {
         }
     }
 
-    pub fn query<T: Component>(&mut self) -> Iter<'_, Option<T>> {
+    pub fn query<T: Component>(&self) -> Iter<'_, Option<T>> {
         self.components.get_component_pool::<T>().unwrap().iter()
     }
 
     pub fn query_mut<T: Component>(&mut self) -> IterMut<'_, Option<T>> {
         self.components
-            .get_component_pool::<T>()
+            .get_component_pool_mut::<T>()
             .unwrap()
             .iter_mut()
     }
@@ -38,38 +38,60 @@ impl World {
         self.entities.spawn_entity()
     }
 
-    pub fn remove_entity(&mut self, entity: Entity) -> Entity {
-        self.entities.remove_entity(entity)
+    pub fn remove_entity(&mut self, entity: Entity) {
+        self.components.clear_entity_components(entity.index());
+        self.entities.remove_entity(entity);
     }
 
     pub fn entity_count(&self) -> usize {
-        self.entities.count
+        self.entities.count()
     }
 
-    pub fn update(dt: u32) {}
+    pub fn update(&mut self, dt: u32) {
+        // Setup stuff
+        // Run stuff
+        // Cleanup stuff
+    }
 
     pub fn add_component<T: Component>(&mut self, entity: Entity, component: T) {
-        self.components.set_entity_component(entity, component);
-        self.entities
-            .add_to_signature(entity, self.components.get_component_id::<T>());
+        if self.entities.allocator.is_live(entity) {
+            self.components
+                .set_entity_component(entity.index(), component);
+            self.entities.add_to_signature(
+                entity.index(),
+                self.components.get_or_register_component_id::<T>(),
+            );
+        }
     }
 
     pub fn remove_component<T: Component>(&mut self, entity: Entity) {
-        self.entities
-            .remove_from_signature(entity, self.components.get_component_id::<T>());
+        if self.entities.allocator.is_live(entity) {
+            self.entities.remove_from_signature(
+                entity.index(),
+                self.components.get_or_register_component_id::<T>(),
+            );
+        }
     }
 
-    pub fn has_component<T: Component>(&mut self, entity: Entity) -> bool {
-        self.entities
-            .signature_contains(entity, self.components.get_component_id::<T>())
+    pub fn has_component<T: Component>(&self, entity: Entity) -> bool {
+        if let Some(comp_id) = self.components.get_component_id::<T>() {
+            return self.entities.signature_contains(entity.index(), comp_id);
+        }
+        false
     }
 
-    pub fn get_component<T: Component>(&mut self, entity: Entity) -> Option<&T> {
-        self.components.get_entity_component(entity)
+    pub fn get_component<T: Component>(&self, entity: Entity) -> Option<&T> {
+        if self.entities.allocator.is_live(entity) {
+            return self.components.get_entity_component(entity.index());
+        }
+        None
     }
 
     pub fn get_component_mut<T: Component>(&mut self, entity: Entity) -> Option<&mut T> {
-        self.components.get_entity_component_mut(entity)
+        if self.entities.allocator.is_live(entity) {
+            return self.components.get_entity_component_mut(entity.index());
+        }
+        None
     }
 
     pub fn add_system() {}
@@ -85,7 +107,7 @@ mod tests {
     fn can_create_entity() {
         let mut world = World::new();
         let entity = world.spawn_entity();
-        assert_eq!(entity, 0);
+        assert_eq!(entity.index(), 0);
         assert_eq!(world.entity_count(), 1);
     }
 
@@ -93,7 +115,7 @@ mod tests {
     fn can_remove_entity() {
         let mut world = World::new();
         let entity = world.spawn_entity();
-        assert_eq!(entity, 0);
+        assert_eq!(entity.index(), 0);
         assert_eq!(world.entity_count(), 1);
 
         world.remove_entity(entity);
@@ -104,7 +126,7 @@ mod tests {
     fn can_add_component_to_entity() {
         let mut world = World::new();
         let entity = world.spawn_entity();
-        assert_eq!(entity, 0);
+        assert_eq!(entity.index(), 0);
         assert_eq!(world.entity_count(), 1);
 
         struct Health(usize);
@@ -118,7 +140,7 @@ mod tests {
     fn can_get_entity_component() {
         let mut world = World::new();
         let entity = world.spawn_entity();
-        assert_eq!(entity, 0);
+        assert_eq!(entity.index(), 0);
         assert_eq!(world.entity_count(), 1);
 
         struct Health(usize);
@@ -140,7 +162,7 @@ mod tests {
     fn can_iterate_over_components() {
         let mut world = World::new();
         let entity = world.spawn_entity();
-        assert_eq!(entity, 0);
+        assert_eq!(entity.index(), 0);
         assert_eq!(world.entity_count(), 1);
 
         struct Health(usize);
@@ -163,7 +185,7 @@ mod tests {
     fn can_iterate_mutably_over_components() {
         let mut world = World::new();
         let entity = world.spawn_entity();
-        assert_eq!(entity, 0);
+        assert_eq!(entity.index(), 0);
         assert_eq!(world.entity_count(), 1);
 
         struct Health(usize);
@@ -177,9 +199,9 @@ mod tests {
         let entity_health = world.get_component::<Health>(entity).unwrap();
         assert_eq!(entity_health.0, 100);
 
-        // for health in world.query_mut::<Health>().filter_map(|h| h.as_mut()) {
-        //     health.0 = 120;
-        // }
-        // assert_eq!(entity_health.0, 120);
+        for health in world.query_mut::<Health>().filter_map(|h| h.as_mut()) {
+            health.0 = 120;
+        }
+        assert_eq!(entity_health.0, 120);
     }
 }
