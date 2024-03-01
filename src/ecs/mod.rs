@@ -1,5 +1,6 @@
-mod components;
+mod archetype;
+mod bundles;
 mod entities;
-mod generational_index;
-mod systems;
+mod helpers;
+mod queries;
 pub mod world;
